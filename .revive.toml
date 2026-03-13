@@ -1,0 +1,19 @@
+ignoreGeneratedHeader = false
+severity = "warning"
+confidence = 0.8
+errorCode = 1
+warningCode = 0
+
+[rule.blank-imports]
+[rule.context-as-argument]
+[rule.dot-imports]
+[rule.error-return]
+[rule.error-strings]
+[rule.exported]
+exclude = ["git-private/**"]
+[rule.if-return]
+[rule.indent-error-flow]
+[rule.receiver-naming]
+[rule.redefines-builtin-id]
+[rule.unused-parameter]
+[rule.var-naming]
