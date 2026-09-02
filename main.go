@@ -4,22 +4,28 @@ import (
 	"fmt"
 	"os"
 
-	"git-safe/cmd"
-	"git-safe/internal/usecase"
+	"github.com/asd2003ru/git-safe/cmd"
+	"github.com/asd2003ru/git-safe/internal/adapters/cryptoage"
+	"github.com/asd2003ru/git-safe/internal/adapters/gitgogit"
+	"github.com/asd2003ru/git-safe/internal/adapters/keyloader"
+	"github.com/asd2003ru/git-safe/internal/adapters/osfs"
+	"github.com/asd2003ru/git-safe/internal/adapters/sha256hash"
+	"github.com/asd2003ru/git-safe/internal/adapters/statefs"
+	"github.com/asd2003ru/git-safe/internal/domain"
+	"github.com/asd2003ru/git-safe/internal/usecase"
 )
 
-// main точка входа CLI приложения.
 func main() {
-	// Этап 1: создаем use-case сервис со всеми адаптерами по умолчанию.
-	uc, err := usecase.NewDefaultService()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, cmd.ErrorMessage(err))
-		os.Exit(cmd.ExitCode(err))
-	}
+	git := gitgogit.New()
+	fs := osfs.New()
+	hasher := sha256hash.New()
+	crypto := cryptoage.New()
+	loader := keyloader.New(fs, crypto)
+	state := statefs.New(git)
+	service := usecase.NewService(git, fs, hasher, state, loader, crypto, os.Stdin, os.Stdout, os.Stderr)
 
-	// Этап 2: запускаем CLI и завершаем процесс с нормализованным кодом ошибки.
-	if err := cmd.Execute(uc); err != nil {
-		fmt.Fprintln(os.Stderr, cmd.ErrorMessage(err))
-		os.Exit(cmd.ExitCode(err))
+	if err := cmd.Execute(service, os.Args[1:]); err != nil {
+		fmt.Printf("%s error: %v\n", domain.ToolName, err)
+		os.Exit(1)
 	}
 }

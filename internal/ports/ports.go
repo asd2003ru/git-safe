@@ -1,67 +1,65 @@
 package ports
 
 import (
-	"context"
 	"io"
-	"time"
 
-	"git-safe/internal/domain"
+	"filippo.io/age"
+	"github.com/asd2003ru/git-safe/internal/domain"
 )
 
-// Git порт для git-операций, необходимых бизнес-логике.
-type Git interface {
-	// IsInsideWorkTree проверяет, что текущий каталог находится внутри git-репозитория.
-	IsInsideWorkTree(ctx context.Context) (bool, error)
-	// RepoRoot возвращает абсолютный путь до корня репозитория.
-	RepoRoot(ctx context.Context) (string, error)
-	// AddIgnorePattern добавляет шаблон в .gitignore.
-	AddIgnorePattern(ctx context.Context, pattern string) error
-	// RemoveIgnorePattern удаляет шаблон из .gitignore.
-	RemoveIgnorePattern(ctx context.Context, pattern string) error
+// GitClient инкапсулирует взаимодействие с git CLI.
+type GitClient interface {
+	IsInsideWorkTree() (bool, error)
+	GetRootPath() (string, error)
+	IsIgnored(path string) (bool, error)
+	AddIgnorePattern(pattern string) error
+	RemoveIgnorePattern(pattern string) error
 }
 
-// StateStore порт хранения состояния git-safe (файлы и ключи).
+// FileSystem позволяет тестировать операции с файлами.
+type FileSystem interface {
+	Exists(path string) (bool, error)
+	Abs(path string) (string, error)
+	IsAbs(path string) bool
+	IsDir(path string) (bool, error)
+	WalkFiles(root string) ([]string, error)
+	ReadFile(path string) ([]byte, error)
+	WriteFile(path string, data []byte, perm uint32) error
+	Remove(path string) error
+	Chmod(path string, perm uint32) error
+	MkdirAll(path string, perm uint32) error
+	Open(path string) (io.ReadCloser, error)
+}
+
+// Hasher используется для проверки синхронизации открытых файлов.
+type Hasher interface {
+	SHA256File(path string) (string, error)
+}
+
+// StateStore работает с native layout .gitsafe.
 type StateStore interface {
-	// IsInitialized проверяет, инициализировано ли состояние git-safe в репозитории.
-	IsInitialized(repoRoot string) (bool, error)
-	// Init создает начальную структуру состояния.
-	Init(repoRoot string) error
-	// LoadFiles загружает список отслеживаемых секретных файлов.
-	LoadFiles(repoRoot string) ([]domain.SecretFile, error)
-	// StoreFiles сохраняет список отслеживаемых секретных файлов.
-	StoreFiles(repoRoot string, files []domain.SecretFile) error
-	// LoadKeys загружает список публичных ключей.
-	LoadKeys(repoRoot string) ([]domain.Key, error)
-	// StoreKeys сохраняет список публичных ключей.
-	StoreKeys(repoRoot string, keys []domain.Key) error
+	StateDir() (string, error)
+	PathsFile() (string, error)
+	KeysFile() (string, error)
+	LoadFileList() (domain.FileList, error)
+	StoreFileList(list domain.FileList) error
+	ReadKeysData() ([]byte, bool, error)
+	WriteKeysData(data []byte) error
 }
 
-// Crypto порт шифрования, расшифровки и генерации ключей.
-type Crypto interface {
-	// Encrypt шифрует данные на набор получателей из списка ключей.
-	Encrypt(plaintext []byte, keys []domain.Key) ([]byte, error)
-	// Decrypt расшифровывает данные с использованием приватной identity.
-	Decrypt(ciphertext []byte, identity string) ([]byte, error)
-	// GenerateKeyPair генерирует новую пару AGE-ключей.
-	GenerateKeyPair() (privateKey string, publicKey string, err error)
-}
-
-// KeyLoader порт загрузки приватной identity из внешних источников.
+// KeyLoader загружает приватный ключ по приоритету: key -> keyfile -> env -> env-file.
 type KeyLoader interface {
-	// Load загружает приватный ключ с учетом приоритетов источников.
-	Load(flagKeyFile string) (string, error)
+	LoadIdentity(key string, keyFile string) (age.Identity, error)
 }
 
-// Clock порт получения текущего времени.
-type Clock interface {
-	// Now возвращает текущее время.
-	Now() time.Time
-}
-
-// IO порт для вывода сообщений в stdout/stderr.
-type IO interface {
-	// Stdout возвращает поток стандартного вывода.
-	Stdout() io.Writer
-	// Stderr возвращает поток ошибок.
-	Stderr() io.Writer
+// CryptoService инкапсулирует age/ssh крипто-операции.
+type CryptoService interface {
+	Encrypt(plain []byte, recipients []age.Recipient) ([]byte, error)
+	Decrypt(cipher []byte, identity age.Identity) ([]byte, error)
+	RecipientsFromKeyList(keys []domain.Key, access domain.KeyAccess) ([]age.Recipient, error)
+	ParseAndNormalizePublicKey(key string) (keyType domain.KeyType, normalized string, sshComment string, err error)
+	ParseAGERecipients(key string) (count int, err error)
+	ParseAgeIdentity(data []byte) (age.Identity, error)
+	GenerateAgeIdentity() (private string, public string, err error)
+	EncryptWithScryptRecipient(plain []byte, passphrase []byte) ([]byte, error)
 }

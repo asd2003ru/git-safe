@@ -1,261 +1,93 @@
 package usecase
 
 import (
-	"bytes"
-	"context"
-	"errors"
-	"io"
-	"os"
 	"path/filepath"
-	"slices"
-	"strings"
+	"reflect"
 	"testing"
-	"time"
 
-	"git-safe/cmd"
-	"git-safe/internal/domain"
-	"git-safe/internal/ports"
-	"git-safe/internal/ucerr"
+	"github.com/asd2003ru/git-safe/internal/domain"
 )
 
-type fakeGit struct {
-	root           string
-	inside         bool
-	addPatterns    []string
-	removePatterns []string
-}
-
-func (g *fakeGit) IsInsideWorkTree(context.Context) (bool, error) { return g.inside, nil }
-func (g *fakeGit) RepoRoot(context.Context) (string, error)       { return g.root, nil }
-func (g *fakeGit) AddIgnorePattern(_ context.Context, pattern string) error {
-	g.addPatterns = append(g.addPatterns, pattern)
-	return nil
-}
-func (g *fakeGit) RemoveIgnorePattern(_ context.Context, pattern string) error {
-	g.removePatterns = append(g.removePatterns, pattern)
-	return nil
-}
-
-type memoryStore struct {
-	initialized bool
-	files       []domain.SecretFile
-	keys        []domain.Key
-}
-
-func (s *memoryStore) IsInitialized(string) (bool, error) { return s.initialized, nil }
-func (s *memoryStore) Init(string) error                  { s.initialized = true; return nil }
-func (s *memoryStore) LoadFiles(string) ([]domain.SecretFile, error) {
-	return slices.Clone(s.files), nil
-}
-func (s *memoryStore) StoreFiles(_ string, files []domain.SecretFile) error {
-	s.files = slices.Clone(files)
-	return nil
-}
-func (s *memoryStore) LoadKeys(string) ([]domain.Key, error) { return slices.Clone(s.keys), nil }
-func (s *memoryStore) StoreKeys(_ string, keys []domain.Key) error {
-	s.keys = slices.Clone(keys)
-	return nil
-}
-
-type fakeCrypto struct{}
-
-func (fakeCrypto) Encrypt(plain []byte, _ []domain.Key) ([]byte, error) {
-	return append([]byte("enc:"), plain...), nil
-}
-func (fakeCrypto) Decrypt(cipher []byte, _ string) ([]byte, error) {
-	if !strings.HasPrefix(string(cipher), "enc:") {
-		return nil, errors.New("bad cipher")
-	}
-	return []byte(strings.TrimPrefix(string(cipher), "enc:")), nil
-}
-func (fakeCrypto) GenerateKeyPair() (string, string, error) { return "priv", "age1pub", nil }
-
-type fakeKeyLoader struct{ key string }
-
-func (k fakeKeyLoader) Load(string) (string, error) { return k.key, nil }
-
-type fakeClock struct{}
-
-func (fakeClock) Now() time.Time { return time.Unix(0, 0) }
-
-type fakeIO struct{ out bytes.Buffer }
-
-func (io *fakeIO) Stdout() io.Writer { return &io.out }
-func (io *fakeIO) Stderr() io.Writer { return &io.out }
-
-func newTestService(t *testing.T, root string, store ports.StateStore) *Service {
-	t.Helper()
-	io := &fakeIO{}
-	svc, err := NewService(Deps{
-		Git:       &fakeGit{root: root, inside: true},
-		Store:     store,
-		Crypto:    fakeCrypto{},
-		KeyLoader: fakeKeyLoader{key: "secret"},
-		Clock:     fakeClock{},
-		IO:        io,
-	})
+func Test_fullPath(t *testing.T) {
+	want, err := filepath.Abs("service_test.go")
 	if err != nil {
-		t.Fatalf("new service: %v", err)
+		t.Fatal(err)
 	}
-	return svc
-}
 
-func requireKind(t *testing.T, err error, want ucerr.Kind) {
-	t.Helper()
-	got, ok := ucerr.KindOf(err)
-	if !ok {
-		t.Fatalf("expected typed error, got: %v", err)
-	}
-	if got != want {
-		t.Fatalf("unexpected kind: got %q, want %q", got, want)
-	}
-}
-
-func TestServiceAddTable(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
 	tests := []struct {
-		name      string
-		files     []string
-		initStore bool
-		prepare   func(t *testing.T, root string)
-		wantErr   ucerr.Kind
-		wantFiles int
+		name string
+		path string
 	}{
 		{
-			name:    "empty input",
-			files:   nil,
-			wantErr: ucerr.InvalidInput,
+			name: "absolute path",
+			path: "service_test.go",
 		},
 		{
-			name:  "not initialized",
-			files: []string{"secret.txt"},
-			prepare: func(t *testing.T, root string) {
-				_ = os.WriteFile(filepath.Join(root, "secret.txt"), []byte("x"), 0o600)
-			},
-			wantErr: ucerr.NotInitialized,
-		},
-		{
-			name:      "adds tracked file",
-			files:     []string{"secret.txt"},
-			initStore: true,
-			prepare: func(t *testing.T, root string) {
-				_ = os.WriteFile(filepath.Join(root, "secret.txt"), []byte("x"), 0o600)
-			},
-			wantFiles: 1,
+			name: "relative path",
+			path: "./service_test.go",
 		},
 	}
-
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			root := t.TempDir()
-			if tt.prepare != nil {
-				tt.prepare(t, root)
-			}
-			store := &memoryStore{initialized: tt.initStore}
-			svc := newTestService(t, root, store)
-
-			err := svc.Add(ctx, tt.files)
-			if tt.wantErr != "" {
-				if err == nil {
-					t.Fatalf("expected error")
-				}
-				requireKind(t, err, tt.wantErr)
-				return
-			}
-			if err != nil {
-				t.Fatalf("add failed: %v", err)
-			}
-			if len(store.files) != tt.wantFiles {
-				t.Fatalf("tracked files mismatch: got %d, want %d", len(store.files), tt.wantFiles)
+			got := fullPath(tt.path)
+			if got != want {
+				t.Errorf("fullPath() = %v, want %v", got, want)
 			}
 		})
 	}
 }
 
-func TestServiceHideRevealCycle(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	root := t.TempDir()
-	secretPath := filepath.Join(root, "secret.txt")
-	if err := os.WriteFile(secretPath, []byte("super-secret"), 0o600); err != nil {
-		t.Fatalf("write secret: %v", err)
+func TestDirectoryPathHelpers(t *testing.T) {
+	list := domain.FileList{
+		Version: 7,
+		Files: []domain.SecureFile{
+			{Path: "secrets/root"},
+			{Path: "secrets/nested/child"},
+			{Path: "secrets-other/file"},
+			{Path: "public"},
+		},
+		Directories: []domain.SecureDirectory{
+			{Path: "secrets"},
+			{Path: "public"},
+		},
 	}
 
-	store := &memoryStore{
-		initialized: true,
-		files:       []domain.SecretFile{{Path: "secret.txt"}},
-		keys:        []domain.Key{{Type: domain.KeyTypeAGE, Key: "age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq", ID: "k1"}},
-	}
-	svc := newTestService(t, root, store)
-
-	if err := svc.Hide(ctx, cmd.HideInput{Files: []string{"secret.txt"}, Clean: true}); err != nil {
-		t.Fatalf("hide failed: %v", err)
-	}
-	if _, err := os.Stat(secretPath); !os.IsNotExist(err) {
-		t.Fatalf("source file should be removed after hide --clean")
-	}
-	if _, err := os.Stat(secretPath + ".safe"); err != nil {
-		t.Fatalf("safe file should exist: %v", err)
+	files := filesInDirectory(list.Files, "./secrets")
+	if !reflect.DeepEqual(files, []domain.SecureFile{{Path: "secrets/root"}, {Path: "secrets/nested/child"}}) {
+		t.Fatalf("unexpected files in directory: %#v", files)
 	}
 
-	if err := svc.Reveal(ctx, cmd.RevealInput{Files: []string{"secret.txt"}}); err != nil {
-		t.Fatalf("reveal failed: %v", err)
+	updated := removeDirectoryFromList(list, "secrets")
+	if updated.Version != list.Version {
+		t.Fatalf("version changed: %d", updated.Version)
 	}
-	got, err := os.ReadFile(secretPath)
-	if err != nil {
-		t.Fatalf("read revealed file: %v", err)
+	if !reflect.DeepEqual(updated.Directories, []domain.SecureDirectory{{Path: "public"}}) {
+		t.Fatalf("unexpected directories after remove: %#v", updated.Directories)
 	}
-	if string(got) != "super-secret" {
-		t.Fatalf("revealed content mismatch: %q", string(got))
+	if !reflect.DeepEqual(updated.Files, []domain.SecureFile{{Path: "secrets-other/file"}, {Path: "public"}}) {
+		t.Fatalf("unexpected files after remove: %#v", updated.Files)
 	}
 }
 
-func TestServiceKeysAddTable(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
+func TestPathInDirectory(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   cmd.KeysAddInput
-		wantErr ucerr.Kind
+		name string
+		path string
+		dir  string
+		want bool
 	}{
-		{
-			name:    "age key requires id",
-			input:   cmd.KeysAddInput{PublicKey: "age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"},
-			wantErr: ucerr.InvalidInput,
-		},
-		{
-			name:  "ssh key infers id",
-			input: cmd.KeysAddInput{PublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEc8mT4mS1WSV6xqxjWn0Q9m2i8WnB4fQ7IY2L3yVvWf user@test"},
-		},
+		{name: "direct file", path: "secrets/root", dir: "secrets", want: true},
+		{name: "nested file", path: "secrets/nested/child", dir: "./secrets", want: true},
+		{name: "directory itself", path: "secrets", dir: "secrets", want: true},
+		{name: "sibling prefix", path: "secrets-other/file", dir: "secrets", want: false},
+		{name: "repository root excludes dot", path: ".", dir: ".", want: false},
+		{name: "repository root includes child", path: "file", dir: ".", want: true},
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			root := t.TempDir()
-			store := &memoryStore{initialized: true}
-			svc := newTestService(t, root, store)
-
-			err := svc.KeysAdd(ctx, tt.input)
-			if tt.wantErr != "" {
-				if err == nil {
-					t.Fatalf("expected error")
-				}
-				requireKind(t, err, tt.wantErr)
-				return
-			}
-			if err != nil {
-				t.Fatalf("keys add failed: %v", err)
-			}
-			if len(store.keys) != 1 {
-				t.Fatalf("key should be added")
+			if got := pathInDirectory(tt.path, tt.dir); got != tt.want {
+				t.Fatalf("pathInDirectory(%q, %q) = %v, want %v", tt.path, tt.dir, got, tt.want)
 			}
 		})
 	}

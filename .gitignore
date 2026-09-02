@@ -1,2 +1,4 @@
 git-private/
 build/
+.codex/
+AGENTS.md
