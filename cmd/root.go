@@ -26,7 +26,7 @@ func BuildRootCommand(service *usecase.Service) *cobra.Command {
 			return fmt.Errorf("no command specified")
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			if cmd.Name() == "help" {
+			if cmd.Name() == "help" || cmd.Name() == "completion" {
 				return nil
 			}
 			return service.CheckSetup()
@@ -45,6 +45,7 @@ func BuildRootCommand(service *usecase.Service) *cobra.Command {
 	root.AddCommand(migrateCmd(service))
 	root.AddCommand(generateCmd(service))
 	root.AddCommand(keysCmd(service))
+	root.AddCommand(completionCmd(service))
 
 	return root
 }
@@ -336,6 +337,42 @@ func keysGenerateCmd(service *usecase.Service) *cobra.Command {
 	cmd.Flags().StringVar(&keyFile, "keyfile", "", "Store private key in `file`")
 	cmd.Flags().StringVar(&pubFile, "pubfile", "", "Store public key in `file`")
 	_ = cmd.MarkFlagRequired("keyfile")
+	return cmd
+}
+
+// completionCmd creates the shell autocompletion command.
+func completionCmd(service *usecase.Service) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "completion [bash|zsh|fish|powershell]",
+		Short: "Generate the autocompletion script for your shell",
+		Long: `Generate the autocompletion script for the specified shell.
+To load completions:
+
+  Bash:
+    $ source <(git-safe completion bash)
+  Zsh:
+    $ git-safe completion zsh > "${fpath[1]}"/_git-safe
+  Fish:
+    $ git-safe completion fish | source
+  PowerShell:
+    PS> git-safe completion powershell | Out-String | Invoke-Expression`,
+		Args: cobra.ExactArgs(1),
+		ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			switch args[0] {
+			case "bash":
+				return cmd.Root().GenBashCompletion(os.Stdout)
+			case "zsh":
+				return cmd.Root().GenZshCompletion(os.Stdout)
+			case "fish":
+				return cmd.Root().GenFishCompletion(os.Stdout, true)
+			case "powershell":
+				return cmd.Root().GenPowerShellCompletion(os.Stdout)
+			default:
+				return fmt.Errorf("unsupported shell type %q", args[0])
+			}
+		},
+	}
 	return cmd
 }
 
