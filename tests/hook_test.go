@@ -21,7 +21,7 @@ func TestHookRequiresKeySource(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when key source is missing")
 	}
-	if !strings.Contains(err.Error(), "git-safe hook -keyfile FILE") {
+	if !strings.Contains(err.Error(), "git-safe hook --keyfile FILE") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -53,16 +53,16 @@ func TestHookWithEnvKeyWritesHooksWithoutFlag(t *testing.T) {
 	if !strings.Contains(preCommitText, "mapfile -d '' safe_files < <(git ls-files -z --others --exclude-standard -- '*.safe')\n") {
 		t.Fatalf("pre-commit must stage new safe files: %s", preCommitText)
 	}
-	if strings.Contains(preCommitText, "-keyfile") {
-		t.Fatalf("pre-commit must not contain -keyfile when env is used: %s", preCommitText)
+	if strings.Contains(preCommitText, " --keyfile ") {
+		t.Fatalf("pre-commit must not contain --keyfile when env is used: %s", preCommitText)
 	}
 
 	postMergeText := string(postMerge)
 	if !strings.Contains(postMergeText, "git-safe reveal\n") {
 		t.Fatalf("unexpected post-merge hook: %s", postMergeText)
 	}
-	if strings.Contains(postMergeText, "-keyfile") {
-		t.Fatalf("post-merge must not contain -keyfile when env is used: %s", postMergeText)
+	if strings.Contains(postMergeText, " --keyfile ") {
+		t.Fatalf("post-merge must not contain --keyfile when env is used: %s", postMergeText)
 	}
 
 	preStat, err := os.Stat(".git/hooks/pre-commit")
@@ -91,10 +91,10 @@ func TestHookWithKeyFileWritesFlagToHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !strings.Contains(string(preCommit), "git-safe hide -keyfile '"+keyPath+"'\n") {
+	if !strings.Contains(string(preCommit), "git-safe hide --keyfile '"+keyPath+"'\n") {
 		t.Fatalf("unexpected pre-commit hook: %s", string(preCommit))
 	}
-	if !strings.Contains(string(postMerge), "git-safe reveal -keyfile '"+keyPath+"'\n") {
+	if !strings.Contains(string(postMerge), "git-safe reveal --keyfile '"+keyPath+"'\n") {
 		t.Fatalf("unexpected post-merge hook: %s", string(postMerge))
 	}
 }
@@ -121,53 +121,27 @@ func TestHookWithKeyWritesFlagToHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !strings.Contains(string(preCommit), "git-safe hide -key '"+key+"'\n") {
+	if !strings.Contains(string(preCommit), "git-safe hide --key '"+key+"'\n") {
 		t.Fatalf("unexpected pre-commit hook: %s", string(preCommit))
 	}
-	if !strings.Contains(string(postMerge), "git-safe reveal -key '"+key+"'\n") {
+	if !strings.Contains(string(postMerge), "git-safe reveal --key '"+key+"'\n") {
 		t.Fatalf("unexpected post-merge hook: %s", string(postMerge))
 	}
-	if strings.Contains(string(preCommit), "-keyfile") || strings.Contains(string(postMerge), "-keyfile") {
-		t.Fatalf("hooks must prefer -key over -keyfile:\n%s\n%s", string(preCommit), string(postMerge))
+	if strings.Contains(string(preCommit), " --keyfile ") || strings.Contains(string(postMerge), " --keyfile ") {
+		t.Fatalf("hooks must prefer --key over --keyfile:\n%s\n%s", string(preCommit), string(postMerge))
 	}
 }
 
-func TestHookAsksAndCancelsOverwrite(t *testing.T) {
-	svc := setupAndInitWithInput(t, "\n")
+func TestHookAppendsManagedBlockToExistingHooks(t *testing.T) {
+	svc := setupAndInit(t)
 	t.Setenv("GIT_SAFE_KEYFILE", oneKey)
 
-	if err := os.WriteFile(".git/hooks/pre-commit", []byte("# old pre\n"), 0o700); err != nil {
+	preExisting := "#!/bin/sh\n\necho old pre\n"
+	postExisting := "#!/bin/sh\n\necho old post\n"
+	if err := os.WriteFile(".git/hooks/pre-commit", []byte(preExisting), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(".git/hooks/post-merge", []byte("# old post\n"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-
-	err := svc.Hook(usecase.HookOptions{})
-	if err == nil {
-		t.Fatal("expected cancellation error")
-	}
-
-	pre, err := os.ReadFile(".git/hooks/pre-commit")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(pre) != "# old pre\n" {
-		t.Fatalf("pre-commit must stay unchanged: %s", string(pre))
-	}
-	if _, err = os.Stat(".git/hooks/pre-commit.bak"); !os.IsNotExist(err) {
-		t.Fatal("backup should not be created when overwrite is canceled")
-	}
-}
-
-func TestHookOverwritesAndCreatesBackup(t *testing.T) {
-	svc := setupAndInitWithInput(t, "y\n")
-	t.Setenv("GIT_SAFE_KEYFILE", oneKey)
-
-	if err := os.WriteFile(".git/hooks/pre-commit", []byte("# old pre\n"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(".git/hooks/post-merge", []byte("# old post\n"), 0o700); err != nil {
+	if err := os.WriteFile(".git/hooks/post-merge", []byte(postExisting), 0o700); err != nil {
 		t.Fatal(err)
 	}
 
@@ -175,28 +149,65 @@ func TestHookOverwritesAndCreatesBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	preBak, err := os.ReadFile(".git/hooks/pre-commit.bak")
+	pre, err := os.ReadFile(".git/hooks/pre-commit")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(preBak) != "# old pre\n" {
-		t.Fatalf("unexpected pre-commit backup: %s", string(preBak))
+	preText := string(pre)
+	if !strings.Contains(preText, "echo old pre\n") {
+		t.Fatalf("pre-commit must keep existing content: %s", preText)
+	}
+	if !strings.Contains(preText, "# >>> git-safe\n") || !strings.Contains(preText, "# <<< git-safe\n") {
+		t.Fatalf("pre-commit must contain managed block: %s", preText)
+	}
+	if !strings.Contains(preText, "git-safe hide\n") {
+		t.Fatalf("pre-commit must contain git-safe hide: %s", preText)
+	}
+	if strings.Count(preText, "# >>> git-safe") != 1 {
+		t.Fatalf("pre-commit must contain one managed block: %s", preText)
 	}
 
-	postBak, err := os.ReadFile(".git/hooks/post-merge.bak")
+	post, err := os.ReadFile(".git/hooks/post-merge")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(postBak) != "# old post\n" {
-		t.Fatalf("unexpected post-merge backup: %s", string(postBak))
+	postText := string(post)
+	if !strings.Contains(postText, "echo old post\n") {
+		t.Fatalf("post-merge must keep existing content: %s", postText)
+	}
+	if !strings.Contains(postText, "git-safe reveal\n") {
+		t.Fatalf("post-merge must contain git-safe reveal: %s", postText)
+	}
+}
+
+func TestHookUpdatesExistingManagedBlock(t *testing.T) {
+	svc := setupAndInit(t)
+	t.Setenv("GIT_SAFE_KEYFILE", oneKey)
+
+	oldHook := "#!/bin/sh\n\n# >>> git-safe\necho old git-safe\n# <<< git-safe\n\necho project check\n"
+	if err := os.WriteFile(".git/hooks/pre-commit", []byte(oldHook), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Hook(usecase.HookOptions{KeyFile: "./testkeys/with space.key"}); err != nil {
+		t.Fatal(err)
 	}
 
 	pre, err := os.ReadFile(".git/hooks/pre-commit")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(pre), "git-safe hide\n") {
-		t.Fatalf("unexpected new pre-commit: %s", string(pre))
+	preText := string(pre)
+	if strings.Contains(preText, "echo old git-safe") {
+		t.Fatalf("old managed block must be replaced: %s", preText)
+	}
+	if !strings.Contains(preText, "echo project check\n") {
+		t.Fatalf("project hook content must be preserved: %s", preText)
+	}
+	if strings.Count(preText, "# >>> git-safe") != 1 || strings.Count(preText, "# <<< git-safe") != 1 {
+		t.Fatalf("managed block must not be duplicated: %s", preText)
+	}
+	if !strings.Contains(preText, "git-safe hide --keyfile '"+filepath.Join(cwd, "testkeys", "with space.key")+"'\n") {
+		t.Fatalf("managed block must be updated with new keyfile: %s", preText)
 	}
 }
 

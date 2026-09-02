@@ -1,7 +1,6 @@
 package usecase
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -661,7 +660,7 @@ func (s *Service) Migrate(opts MigrateOptions) (MigrateResult, error) {
 		return MigrateResult{}, err
 	}
 	if nativeExists && !opts.Force {
-		return MigrateResult{}, fmt.Errorf("native state directory %q already exists, use -force to overwrite", nativeDir)
+		return MigrateResult{}, fmt.Errorf("native state directory %q already exists, use --force to overwrite", nativeDir)
 	}
 
 	pathsData, err := s.fs.ReadFile(filepath.Join(legacyDir, domain.PathsFileName))
@@ -732,7 +731,7 @@ func (s *Service) Hook(opts HookOptions) error {
 		keyFromEnv := strings.TrimSpace(firstEnvValue(domain.PrivateKeyVariable, domain.LegacyPrivateKeyVar))
 		keyFileFromEnv := strings.TrimSpace(firstEnvValue(domain.PrivateKeyFileVar, domain.LegacyPrivateKeyFileVar))
 		if keyFromEnv == "" && keyFileFromEnv == "" {
-			return fmt.Errorf("private key is not configured. Set %s, %s, %s or %s, or use '%s hook -key KEY' or '%s hook -keyfile FILE'",
+			return fmt.Errorf("private key is not configured. Set %s, %s, %s or %s, or use '%s hook --key KEY' or '%s hook --keyfile FILE'",
 				domain.PrivateKeyVariable, domain.PrivateKeyFileVar, domain.LegacyPrivateKeyVar, domain.LegacyPrivateKeyFileVar, domain.ToolName, domain.ToolName)
 		}
 	}
@@ -750,32 +749,14 @@ func (s *Service) Hook(opts HookOptions) error {
 	preCommitPath := filepath.Join(hooksDir, "pre-commit")
 	postMergePath := filepath.Join(hooksDir, "post-merge")
 
-	existing, err := s.existingHookFiles(preCommitPath, postMergePath)
-	if err != nil {
-		return err
-	}
-	if len(existing) > 0 {
-		overwrite, err := s.confirmHooksOverwrite(existing)
-		if err != nil {
-			return err
-		}
-		if !overwrite {
-			return fmt.Errorf("hook installation canceled")
-		}
-		if err = s.backupHookFiles(existing); err != nil {
-			return err
-		}
-	}
-
 	keyFlag := ""
 	if key != "" {
-		keyFlag = " -key " + shellSingleQuote(key)
+		keyFlag = " --key " + shellSingleQuote(key)
 	} else if keyFile != "" {
-		keyFlag = " -keyfile " + shellSingleQuote(fullPath(keyFile))
+		keyFlag = " --keyfile " + shellSingleQuote(fullPath(keyFile))
 	}
 
-	preCommitScript := "#!/bin/bash\n" +
-		"echo \"git-safe: running hide before commit...\"\n" +
+	preCommitBlock := "echo \"git-safe: running hide before commit...\"\n" +
 		"git-safe hide" + keyFlag + "\n" +
 		"if ! git diff-index --quiet HEAD --; then\n" +
 		"  echo \"git-safe: changed files detected after hide, adding to commit...\"\n" +
@@ -785,20 +766,13 @@ func (s *Service) Hook(opts HookOptions) error {
 		"    git add -- \"${safe_files[@]}\"\n" +
 		"  fi\n" +
 		"fi\n"
-	if err = s.fs.WriteFile(preCommitPath, []byte(preCommitScript), 0o700); err != nil {
-		return err
-	}
-	if err = s.fs.Chmod(preCommitPath, 0o700); err != nil {
+	if err = s.installManagedHook(preCommitPath, preCommitBlock); err != nil {
 		return err
 	}
 
-	postMergeScript := "#!/bin/bash\n" +
-		"echo \"git-safe: revealing files after merge...\"\n" +
+	postMergeBlock := "echo \"git-safe: revealing files after merge...\"\n" +
 		"git-safe reveal" + keyFlag + "\n"
-	if err = s.fs.WriteFile(postMergePath, []byte(postMergeScript), 0o700); err != nil {
-		return err
-	}
-	if err = s.fs.Chmod(postMergePath, 0o700); err != nil {
+	if err = s.installManagedHook(postMergePath, postMergeBlock); err != nil {
 		return err
 	}
 
@@ -838,7 +812,7 @@ func (s *Service) copyEncryptedFile(src string, dst string, force bool) error {
 		return err
 	}
 	if dstExists && !force {
-		return fmt.Errorf("native encrypted file %q already exists, use -force to overwrite", dst)
+		return fmt.Errorf("native encrypted file %q already exists, use --force to overwrite", dst)
 	}
 	data, err := s.fs.ReadFile(src)
 	if err != nil {
@@ -1393,56 +1367,71 @@ func fullPath(path string) string {
 	return filepath.Join(os.Getenv("PWD"), path)
 }
 
-func (s *Service) existingHookFiles(paths ...string) ([]string, error) {
-	existing := make([]string, 0, len(paths))
-	for _, path := range paths {
-		ok, err := s.fs.Exists(path)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			existing = append(existing, path)
-		}
+func (s *Service) installManagedHook(path string, script string) error {
+	content := "#!/bin/bash\n"
+	exists, err := s.fs.Exists(path)
+	if err != nil {
+		return err
 	}
-	return existing, nil
-}
-
-func (s *Service) confirmHooksOverwrite(paths []string) (bool, error) {
-	if len(paths) == 0 {
-		return true, nil
-	}
-
-	names := make([]string, 0, len(paths))
-	for _, path := range paths {
-		names = append(names, filepath.Base(path))
-	}
-	_, _ = fmt.Fprintf(s.stdout, "Existing hook(s) detected: %s\n", strings.Join(names, ", "))
-	_, _ = io.WriteString(s.stdout, "Overwrite and create .bak backup? [y/N]: ")
-
-	reader := bufio.NewReader(s.stdin)
-	answer, err := reader.ReadString('\n')
-	if err != nil && !errors.Is(err, io.EOF) {
-		return false, err
-	}
-
-	switch strings.ToLower(strings.TrimSpace(answer)) {
-	case "y", "yes":
-		return true, nil
-	default:
-		return false, nil
-	}
-}
-
-func (s *Service) backupHookFiles(paths []string) error {
-	for _, path := range paths {
+	if exists {
 		data, err := s.fs.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		backupPath := path + ".bak"
-		if err = s.fs.WriteFile(backupPath, data, 0o600); err != nil {
-			return err
+		content = string(data)
+	}
+
+	updated := upsertManagedHookBlock(content, managedHookBlock(script))
+	if err = s.fs.WriteFile(path, []byte(updated), 0o700); err != nil {
+		return err
+	}
+	return s.fs.Chmod(path, 0o700)
+}
+
+func managedHookBlock(script string) string {
+	return "# >>> git-safe\n" +
+		"if command -v bash >/dev/null 2>&1; then\n" +
+		"  bash <<'GIT_SAFE_HOOK'\n" +
+		ensureTrailingNewline(script) +
+		"GIT_SAFE_HOOK\n" +
+		"else\n" +
+		"  echo \"git-safe: bash is required for git-safe hook\" >&2\n" +
+		"  exit 1\n" +
+		"fi\n" +
+		"# <<< git-safe\n"
+}
+
+func upsertManagedHookBlock(content string, block string) string {
+	const beginMarker = "# >>> git-safe"
+	const endMarker = "# <<< git-safe"
+
+	if start := strings.Index(content, beginMarker); start >= 0 {
+		if end := strings.Index(content[start:], endMarker); end >= 0 {
+			end += start + len(endMarker)
+			if end < len(content) && content[end] == '\n' {
+				end++
+			}
+			return ensureTrailingNewline(content[:start]) + ensureTrailingNewline(block) + content[end:]
 		}
 	}
-	return nil
+
+	content = ensureTrailingNewline(content)
+	if strings.HasPrefix(content, "#!") {
+		lineEnd := strings.IndexByte(content, '\n')
+		if lineEnd >= 0 {
+			return content[:lineEnd+1] + "\n" + ensureTrailingNewline(block) + content[lineEnd+1:]
+		}
+	}
+
+	if strings.TrimSpace(content) == "" {
+		return "#!/bin/bash\n\n" + ensureTrailingNewline(block)
+	}
+	return "#!/bin/bash\n\n" + ensureTrailingNewline(block) + content
+}
+
+func ensureTrailingNewline(value string) string {
+	if strings.HasSuffix(value, "\n") {
+		return value
+	}
+	return value + "\n"
 }

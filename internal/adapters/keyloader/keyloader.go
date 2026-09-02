@@ -91,7 +91,7 @@ func (a *Adapter) loadKeyData(flagKey string, flagPath string) ([]byte, error) {
 
 	file := firstEnvValue(domain.PrivateKeyFileVar, domain.LegacyPrivateKeyFileVar)
 	if file == "" {
-		return nil, fmt.Errorf("no private key provided, use -key, -keyfile or environment variables %s, %s, %s or %s",
+		return nil, fmt.Errorf("no private key provided, use --key, --keyfile or environment variables %s, %s, %s or %s",
 			domain.PrivateKeyVariable, domain.PrivateKeyFileVar, domain.LegacyPrivateKeyVar, domain.LegacyPrivateKeyFileVar)
 	}
 

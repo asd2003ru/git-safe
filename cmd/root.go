@@ -85,7 +85,7 @@ func hideCmd(service *usecase.Service) *cobra.Command {
 	var clean bool
 
 	cmd := &cobra.Command{
-		Use:   "hide [-key KEY] [-keyfile FILE] [-clean] [FILE...]",
+		Use:   "hide [--key KEY] [--keyfile FILE] [--clean] [FILE...]",
 		Short: "Encrypt tracked files",
 		RunE: func(_ *cobra.Command, args []string) error {
 			return service.Hide(usecase.HideOptions{Key: key, KeyFile: keyFile, Clean: clean, Files: args})
@@ -104,7 +104,7 @@ func revealCmd(service *usecase.Service) *cobra.Command {
 	var clean bool
 
 	cmd := &cobra.Command{
-		Use:   "reveal [-key KEY] [-keyfile FILE] [-force] [-clean] [FILE...]",
+		Use:   "reveal [--key KEY] [--keyfile FILE] [--force] [--clean] [FILE...]",
 		Short: "Decrypt tracked files",
 		RunE: func(_ *cobra.Command, args []string) error {
 			result, err := service.Reveal(usecase.RevealOptions{Key: key, KeyFile: keyFile, Force: force, Clean: clean, Files: args})
@@ -129,7 +129,7 @@ func cleanCmd(service *usecase.Service) *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{
-		Use:   "clean [-force]",
+		Use:   "clean [--force]",
 		Short: "Clean revealed files",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return service.Clean(force)
@@ -166,7 +166,7 @@ func hookCmd(service *usecase.Service) *cobra.Command {
 	var keyFile string
 
 	cmd := &cobra.Command{
-		Use:   "hook [-key KEY] [-keyfile FILE]",
+		Use:   "hook [--key KEY] [--keyfile FILE]",
 		Short: "Install git hooks for transparent hide/reveal",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return service.Hook(usecase.HookOptions{Key: key, KeyFile: keyFile})
@@ -183,7 +183,7 @@ func migrateCmd(service *usecase.Service) *cobra.Command {
 	var keepLegacy bool
 
 	cmd := &cobra.Command{
-		Use:   "migrate [-dry-run] [-force] [-keep-legacy]",
+		Use:   "migrate [--dry-run] [--force] [--keep-legacy]",
 		Short: "Migrate legacy git-private layout to git-safe layout",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			result, err := service.Migrate(usecase.MigrateOptions{DryRun: dryRun, Force: force, KeepLegacy: keepLegacy})
@@ -212,7 +212,7 @@ func migrateCmd(service *usecase.Service) *cobra.Command {
 
 func generateCmd(service *usecase.Service) *cobra.Command {
 	cmd := keysGenerateCmd(service)
-	cmd.Use = "generate -keyfile FILE [-pubfile FILE]"
+	cmd.Use = "generate --keyfile FILE [--pubfile FILE]"
 	cmd.Short = "Generate AGE keypair (alias for 'keys generate')"
 	return cmd
 }
@@ -235,7 +235,7 @@ func keysListCmd(service *usecase.Service) *cobra.Command {
 	var keyFile string
 
 	cmd := &cobra.Command{
-		Use:   "list [-keyfile FILE]",
+		Use:   "list [--keyfile FILE]",
 		Short: "List configured keys",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			keys, err := service.KeysList(keyFile)
@@ -269,7 +269,7 @@ func keysAddCmd(service *usecase.Service) *cobra.Command {
 	var readOnly bool
 
 	cmd := &cobra.Command{
-		Use:   "add [-keyfile FILE] [-id ID] [-readonly] <-pubfile FILE | \"PUBLIC_KEY\">",
+		Use:   "add [--keyfile FILE] [--id ID] [--readonly] <--pubfile FILE | \"PUBLIC_KEY\">",
 		Short: "Add public key",
 		RunE: func(_ *cobra.Command, args []string) error {
 			keyData := ""
@@ -294,7 +294,7 @@ func keysRemoveCmd(service *usecase.Service) *cobra.Command {
 	var id string
 
 	cmd := &cobra.Command{
-		Use:   "remove [-keyfile FILE] <-id ID | ID>",
+		Use:   "remove [--keyfile FILE] <--id ID | ID>",
 		Short: "Remove key by id",
 		RunE: func(_ *cobra.Command, args []string) error {
 			resolvedID := strings.TrimSpace(id)
@@ -314,7 +314,7 @@ func keysGenerateCmd(service *usecase.Service) *cobra.Command {
 	var pubFile string
 
 	cmd := &cobra.Command{
-		Use:   "generate -keyfile FILE [-pubfile FILE]",
+		Use:   "generate --keyfile FILE [--pubfile FILE]",
 		Short: "Generate AGE keypair",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			passphrase, err := readPassphrase("Enter passphrase:")
