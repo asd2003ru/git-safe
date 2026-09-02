@@ -60,6 +60,9 @@ try {
 
     Write-Host "Installed git-safe to $InstallDir\git-safe.exe"
     Write-Host "Restart your terminal if git-safe is not available in the current session."
+
+    # Offer shell completion installation
+    Write-Host "To install PowerShell completion: git-safe completion powershell | Out-String | Invoke-Expression"
 }
 finally {
     Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue

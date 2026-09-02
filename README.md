@@ -94,6 +94,21 @@ git-safe keys generate --keyfile FILE [--pubfile FILE]
 
 `generate` is a shortcut for `keys generate`.
 
+`completion` generates a shell autocompletion script (`bash`/`zsh`/`fish`/`powershell`) and works outside a git repository.
+
+### Shell Completion
+
+```bash
+# Bash
+git-safe completion bash > /etc/bash_completion.d/git-safe
+
+# Zsh
+git-safe completion zsh > "${fpath[1]}"/_git-safe
+
+# Fish
+git-safe completion fish | source
+```
+
 ### Key Source Priority
 
 For `hide`, `reveal`, and `hook`:
@@ -297,6 +312,21 @@ git-safe keys generate --keyfile FILE [--pubfile FILE]
 ```
 
 `generate` — это сокращение для `keys generate`.
+
+`completion` генерирует скрипт автодополнения для оболочки (`bash`/`zsh`/`fish`/`powershell`) и работает вне git-репозитория.
+
+### Автодополнение в оболочке
+
+```bash
+# Bash
+git-safe completion bash > /etc/bash_completion.d/git-safe
+
+# Zsh
+git-safe completion zsh > "${fpath[1]}"/_git-safe
+
+# Fish
+git-safe completion fish | source
+```
 
 ### Приоритет источника приватного ключа
 

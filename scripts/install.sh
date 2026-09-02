@@ -81,6 +81,24 @@ main() {
   if ! command -v "$BINARY_NAME" >/dev/null 2>&1; then
     log "Make sure ${INSTALL_DIR} is in your PATH."
   fi
+
+  # Offer shell completion installation based on detected shell
+  current_shell="${SHELL:-/bin/bash}"
+  shell_name="$(basename "$current_shell")"
+  case "$shell_name" in
+    bash)
+      log "To install bash completion: git-safe completion bash > /etc/bash_completion.d/git-safe"
+      ;;
+    zsh)
+      log "To install zsh completion: git-safe completion zsh > \"\${fpath[1]}\"/_git-safe"
+      ;;
+    fish)
+      log "To install fish completion: git-safe completion fish | source"
+      ;;
+    *)
+      log "To install shell completion run: git-safe completion [bash|zsh|fish|powershell]"
+      ;;
+  esac
 }
 
 main "$@"
