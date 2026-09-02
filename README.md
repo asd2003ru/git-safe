@@ -36,6 +36,26 @@ Key differences in this codebase:
   - public key file contains raw public key only.
 - Updated docs and test suite tailored for this reimplementation.
 
+### Install
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/asd2003ru/git-safe/main/scripts/install.sh | bash
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/asd2003ru/git-safe/main/scripts/install.ps1 | iex
+```
+
+On Linux/macOS, set `GIT_SAFE_INSTALL_DIR` to install without root access:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/asd2003ru/git-safe/main/scripts/install.sh | GIT_SAFE_INSTALL_DIR="$HOME/.local/bin" bash
+```
+
 ### Quick Start
 
 ```bash
@@ -218,19 +238,39 @@ go build -o build/git-safe .
   - public-файл содержит только публичный ключ.
 - Обновлена документация и набор тестов под новую реализацию.
 
+### Установка
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/asd2003ru/git-safe/main/scripts/install.sh | bash
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/asd2003ru/git-safe/main/scripts/install.ps1 | iex
+```
+
+Для установки без root-доступа на Linux/macOS можно задать `GIT_SAFE_INSTALL_DIR`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/asd2003ru/git-safe/main/scripts/install.sh | GIT_SAFE_INSTALL_DIR="$HOME/.local/bin" bash
+```
+
 ### Быстрый старт
 
 ```bash
-# 1) Инициализация
+# 1) Initialize
 git-safe init
 
-# 2) Добавление ключа (пример SSH)
+# 2) Add a key (SSH example)
 git-safe keys add -keyfile ~/.ssh/id_rsa -pubfile ~/.ssh/id_rsa.pub
 
-# 3) Добавление приватных файлов
+# 3) Add private files
 git-safe add .env secrets
 
-# 4) Шифрование
+# 4) Encrypt
 git-safe hide -keyfile ~/.ssh/id_rsa -clean
 ```
 
@@ -278,10 +318,10 @@ git-safe keys generate -keyfile FILE [-pubfile FILE]
 #### 1) SSH ключевая пара
 
 ```bash
-# Добавить SSH публичный ключ в список
+# Add an SSH public key to the list
 git-safe keys add -keyfile ~/.ssh/id_rsa -pubfile ~/.ssh/id_rsa.pub
 
-# Шифрование/расшифровка приватным SSH ключом
+# Encrypt/decrypt with an SSH private key
 git-safe hide -keyfile ~/.ssh/id_rsa
 git-safe reveal -keyfile ~/.ssh/id_rsa
 ```
@@ -289,13 +329,13 @@ git-safe reveal -keyfile ~/.ssh/id_rsa
 #### 2) AGE ключевая пара (генерация через git-safe)
 
 ```bash
-# Создать private + public файлы
+# Create private + public files
 git-safe generate -keyfile build/team.age -pubfile build/team.age.pub
 
-# Добавить AGE публичный ключ (для AGE обязателен -id)
+# Add an AGE public key (AGE requires -id)
 git-safe keys add -keyfile build/team.age -id team-main -pubfile build/team.age.pub
 
-# Шифрование/расшифровка приватным AGE ключом
+# Encrypt/decrypt with an AGE private key
 git-safe hide -keyfile build/team.age
 git-safe reveal -keyfile build/team.age
 ```

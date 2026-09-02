@@ -1,6 +1,6 @@
 package domain
 
-// Основные константы native-формата и legacy-совместимости.
+// Core constants for the native format and legacy compatibility.
 const (
 	PrivateExtension         = ".safe"
 	LegacyPrivateExtension   = ".private"
@@ -17,7 +17,7 @@ const (
 	KeysFileName             = "keys.dat"
 )
 
-// KeyType описывает формат публичного ключа.
+// KeyType describes the public key format.
 type KeyType string
 
 const (
@@ -25,7 +25,7 @@ const (
 	AGE KeyType = "age"
 )
 
-// Key хранится внутри keys.dat.
+// Key is stored inside keys.dat.
 type Key struct {
 	Type     KeyType `json:"Type"`
 	Key      string  `json:"Key"`
@@ -33,24 +33,24 @@ type Key struct {
 	ReadOnly bool    `json:"ReadOnly"`
 }
 
-// KeyList хранится в зашифрованном keys.dat.
+// KeyList is stored in encrypted keys.dat.
 type KeyList struct {
 	Version int   `json:"Version"`
 	Keys    []Key `json:"Keys"`
 }
 
-// SecureFile хранит tracked файл и hash последней скрытой версии.
+// SecureFile stores a tracked file and the hash of its last hidden version.
 type SecureFile struct {
 	Path string `json:"Path"`
 	Hash string `json:"Hash"`
 }
 
-// SecureDirectory хранит директорию, из которой автоматически добавляются файлы.
+// SecureDirectory stores a directory whose files are added automatically.
 type SecureDirectory struct {
 	Path string `json:"Path"`
 }
 
-// FileList хранится в paths.json.
+// FileList is stored in paths.json.
 type FileList struct {
 	Version     int               `json:"Version"`
 	Files       []SecureFile      `json:"Files"`
@@ -91,7 +91,7 @@ const (
 	ReadWriteAccess KeyAccess = "rw"
 )
 
-// FileStatus используется командой status/reveal/clean.
+// FileStatus is used by the status, reveal, and clean commands.
 type FileStatus struct {
 	File   SecureFile
 	Status StatusCode

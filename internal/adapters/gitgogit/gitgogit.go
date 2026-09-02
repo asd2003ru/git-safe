@@ -10,7 +10,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )
 
-// Adapter реализует GitClient на базе go-git (без вызовов git CLI).
+// Adapter implements GitClient using go-git without invoking the git CLI.
 type Adapter struct{}
 
 func New() *Adapter {
@@ -151,7 +151,7 @@ func (a *Adapter) findRepoRoot() (string, error) {
 	for {
 		dotGit := filepath.Join(dir, ".git")
 		if _, statErr := os.Stat(dotGit); statErr == nil {
-			// Проверяем, что это действительно git-репозиторий.
+			// Verify that this is really a git repository.
 			if _, openErr := git.PlainOpenWithOptions(dir, &git.PlainOpenOptions{
 				DetectDotGit:          false,
 				EnableDotGitCommonDir: true,

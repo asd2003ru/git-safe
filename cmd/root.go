@@ -16,7 +16,7 @@ import (
 	"golang.org/x/term"
 )
 
-// BuildRootCommand собирает CLI-дерево команд.
+// BuildRootCommand builds the CLI command tree.
 func BuildRootCommand(service *usecase.Service) *cobra.Command {
 	root := &cobra.Command{
 		Use:   domain.ToolName,

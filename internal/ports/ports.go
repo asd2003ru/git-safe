@@ -7,7 +7,7 @@ import (
 	"github.com/asd2003ru/git-safe/internal/domain"
 )
 
-// GitClient инкапсулирует взаимодействие с git CLI.
+// GitClient encapsulates git interactions.
 type GitClient interface {
 	IsInsideWorkTree() (bool, error)
 	GetRootPath() (string, error)
@@ -16,7 +16,7 @@ type GitClient interface {
 	RemoveIgnorePattern(pattern string) error
 }
 
-// FileSystem позволяет тестировать операции с файлами.
+// FileSystem makes file operations testable.
 type FileSystem interface {
 	Exists(path string) (bool, error)
 	Abs(path string) (string, error)
@@ -31,12 +31,12 @@ type FileSystem interface {
 	Open(path string) (io.ReadCloser, error)
 }
 
-// Hasher используется для проверки синхронизации открытых файлов.
+// Hasher is used to check whether revealed files are in sync.
 type Hasher interface {
 	SHA256File(path string) (string, error)
 }
 
-// StateStore работает с native layout .gitsafe.
+// StateStore works with the native .gitsafe layout.
 type StateStore interface {
 	StateDir() (string, error)
 	PathsFile() (string, error)
@@ -47,12 +47,12 @@ type StateStore interface {
 	WriteKeysData(data []byte) error
 }
 
-// KeyLoader загружает приватный ключ по приоритету: key -> keyfile -> env -> env-file.
+// KeyLoader loads the private key by priority: key -> keyfile -> env -> env-file.
 type KeyLoader interface {
 	LoadIdentity(key string, keyFile string) (age.Identity, error)
 }
 
-// CryptoService инкапсулирует age/ssh крипто-операции.
+// CryptoService encapsulates age/ssh crypto operations.
 type CryptoService interface {
 	Encrypt(plain []byte, recipients []age.Recipient) ([]byte, error)
 	Decrypt(cipher []byte, identity age.Identity) ([]byte, error)

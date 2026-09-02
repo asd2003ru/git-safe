@@ -14,7 +14,7 @@ import (
 	"golang.org/x/term"
 )
 
-// Adapter реализует загрузку приватного ключа с поддержкой legacy-переменных.
+// Adapter loads private keys with support for legacy variables.
 type Adapter struct {
 	fs     ports.FileSystem
 	crypto ports.CryptoService
@@ -43,16 +43,16 @@ func (a *Adapter) LoadIdentity(key string, keyFile string) (age.Identity, error)
 		if identity, _, err := cryptoage.ParseSSHIdentity(keyData, pass); err == nil {
 			return identity, nil
 		} else {
-			// Если это SSH-ключ и пароль неверный, не пытаемся трактовать его как AGE.
+			// If this is an SSH key and the passphrase is wrong, do not treat it as AGE.
 			return nil, err
 		}
 	} else if sshParseErr == nil {
-		// Это валидный SSH-ключ без passphrase, но не удалось распарсить identity.
-		// Возвращаем исходную SSH-ошибку и не уходим в AGE fallback.
+		// This is a valid SSH key without a passphrase, but identity parsing failed.
+		// Return the original SSH error and do not fall back to AGE.
 		return nil, fmt.Errorf("failed to load SSH identity")
 	}
 
-	// Если AGE-ключ зашифрован через scrypt, сначала расшифровываем его.
+	// If the AGE key is encrypted with scrypt, decrypt it first.
 	if bytes.HasPrefix(keyData, []byte("age-encryption.org/")) {
 		pass, err := readPassphrase("Enter AGE key passphrase:")
 		if err != nil {

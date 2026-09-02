@@ -19,7 +19,7 @@ import (
 
 var errNotFound = errors.New("not found")
 
-// Service содержит все сценарии CLI-команд.
+// Service contains all CLI command use cases.
 type Service struct {
 	git    ports.GitClient
 	fs     ports.FileSystem
@@ -609,7 +609,7 @@ func (s *Service) KeysGenerate(opts GenerateOptions) error {
 		return err
 	}
 
-	// В файлах ключей храним только сами ключи без метаданных.
+	// Key files contain only the keys themselves, without metadata.
 	data := []byte(private + "\n")
 	publicLine := public + "\n"
 

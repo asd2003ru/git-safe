@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Adapter реализует CryptoService через age/agessh.
+// Adapter implements CryptoService using age/agessh.
 type Adapter struct{}
 
 func New() *Adapter {
@@ -128,7 +128,7 @@ func (a *Adapter) EncryptWithScryptRecipient(plain []byte, passphrase []byte) ([
 	return a.Encrypt(plain, []age.Recipient{recipient})
 }
 
-// ParseSSHIdentity пытается распарсить SSH identity с поддержкой passphrase.
+// ParseSSHIdentity tries to parse an SSH identity with passphrase support.
 func ParseSSHIdentity(key []byte, passphrase []byte) (age.Identity, bool, error) {
 	identity, err := agessh.ParseIdentity(key)
 	if err == nil {

@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*-release"
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+  build:
+    name: Build ${{ matrix.goos }} ${{ matrix.goarch }}
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            asset_name: git-safe-linux-amd64
+            archive_name: git-safe-linux-amd64.tar.gz
+          - goos: linux
+            goarch: arm64
+            asset_name: git-safe-linux-arm64
+            archive_name: git-safe-linux-arm64.tar.gz
+          - goos: darwin
+            goarch: amd64
+            asset_name: git-safe-darwin-amd64
+            archive_name: git-safe-darwin-amd64.tar.gz
+          - goos: darwin
+            goarch: arm64
+            asset_name: git-safe-darwin-arm64
+            archive_name: git-safe-darwin-arm64.tar.gz
+          - goos: windows
+            goarch: amd64
+            asset_name: git-safe-windows-amd64.exe
+            archive_name: git-safe-windows-amd64.zip
+          - goos: windows
+            goarch: arm64
+            asset_name: git-safe-windows-arm64.exe
+            archive_name: git-safe-windows-arm64.zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build binary
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p build dist
+          go build -trimpath -ldflags="-s -w" -o "build/${{ matrix.asset_name }}" .
+
+      - name: Package Unix binary
+        if: matrix.goos != 'windows'
+        run: |
+          tar -C build -czf "dist/${{ matrix.archive_name }}" "${{ matrix.asset_name }}"
+
+      - name: Package Windows binary
+        if: matrix.goos == 'windows'
+        run: |
+          cd build
+          zip "../dist/${{ matrix.archive_name }}" "${{ matrix.asset_name }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive_name }}
+          path: dist/${{ matrix.archive_name }}
+          if-no-files-found: error
+
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true

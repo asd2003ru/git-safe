@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-// Adapter считает sha256-хэш файла.
+// Adapter calculates the sha256 hash of a file.
 type Adapter struct{}
 
 func New() *Adapter {

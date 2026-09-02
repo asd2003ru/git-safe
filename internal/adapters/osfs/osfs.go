@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-// Adapter реализует FileSystem поверх os.
+// Adapter implements FileSystem on top of os.
 type Adapter struct{}
 
 func New() *Adapter {

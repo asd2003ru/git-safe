@@ -10,7 +10,7 @@ import (
 	"github.com/asd2003ru/git-safe/internal/ports"
 )
 
-// Adapter хранит state-файлы в native-layout .gitsafe.
+// Adapter stores state files in the native .gitsafe layout.
 type Adapter struct {
 	git ports.GitClient
 }
