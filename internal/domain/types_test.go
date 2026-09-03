@@ -12,6 +12,7 @@ func TestStatusCodeString(t *testing.T) {
 		{code: HiddenModified, want: "hidden, modified"},
 		{code: HiddenNotRevealed, want: "hidden, not revealed"},
 		{code: HiddenPrivateMissing, want: "WARNING: private file missing!"},
+		{code: HiddenMissing, want: "ERROR: source and private files missing!"},
 		{code: StatusCode(0), want: "unknown"},
 	}
 

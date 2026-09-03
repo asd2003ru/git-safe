@@ -339,6 +339,8 @@ func (s *Service) Reveal(opts RevealOptions) (RevealResult, error) {
 			continue
 		case domain.HiddenPrivateMissing:
 			return RevealResult{}, fmt.Errorf("cannot reveal, private version of %q is missing", file.Path)
+		case domain.HiddenMissing:
+			return RevealResult{}, fmt.Errorf("cannot reveal, source and private versions of %q are missing", file.Path)
 		case domain.HiddenModified:
 			if !opts.Force {
 				return RevealResult{}, fmt.Errorf("will not overwrite existing file %q without 'force' flag", file.Path)
@@ -414,6 +416,9 @@ func (s *Service) Clean(force bool) error {
 			}
 			if status == domain.HiddenPrivateMissing {
 				return fmt.Errorf("will not remove file %q with missing private file, use 'force' flag to override", file.Path)
+			}
+			if status == domain.HiddenMissing {
+				return fmt.Errorf("will not remove file %q because source and private files are both missing, restore from git/backup or use 'remove' to stop tracking it", file.Path)
 			}
 			if status == domain.HiddenModified {
 				return fmt.Errorf("will not remove out of sync file %q, use 'force' flag to override", file.Path)
@@ -1002,13 +1007,16 @@ func (s *Service) getFileStatus(file domain.SecureFile) (domain.StatusCode, erro
 	if err != nil {
 		return 0, err
 	}
-	if !privateExists {
-		return domain.HiddenPrivateMissing, nil
-	}
 
 	plainExists, err := s.fs.Exists(fullPath)
 	if err != nil {
 		return 0, err
+	}
+	if !privateExists && !plainExists {
+		return domain.HiddenMissing, nil
+	}
+	if !privateExists {
+		return domain.HiddenPrivateMissing, nil
 	}
 	if !plainExists {
 		return domain.HiddenNotRevealed, nil

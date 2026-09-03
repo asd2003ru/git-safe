@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/asd2003ru/git-safe/internal/domain"
 	"github.com/asd2003ru/git-safe/internal/usecase"
 )
 
@@ -16,6 +17,7 @@ func TestClean(t *testing.T) {
 			{name: "refuses modified file", test: testCleanRefusesModifiedFile},
 			{name: "force removes modified file", test: testCleanForceRemovesModifiedFile},
 			{name: "refuses missing private file", test: testCleanRefusesMissingPrivateFile},
+			{name: "refuses missing source and private files", test: testCleanRefusesMissingSourceAndPrivateFiles},
 		},
 	}, t)
 }
@@ -99,5 +101,32 @@ func testCleanRefusesMissingPrivateFile(t *testing.T, svc *usecase.Service) {
 	}
 	if _, statErr := os.Stat("secret"); statErr != nil {
 		t.Fatalf("revealed file should stay: %v", statErr)
+	}
+}
+
+func testCleanRefusesMissingSourceAndPrivateFiles(t *testing.T, svc *usecase.Service) {
+	t.Helper()
+	setupHiddenFile(t, svc, "secret")
+	if err := os.Remove("secret"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove("secret.safe"); err != nil {
+		t.Fatal(err)
+	}
+
+	statuses, err := svc.Status()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(statuses) != 1 || statuses[0].Status != domain.HiddenMissing {
+		t.Fatalf("unexpected status: %#v", statuses)
+	}
+
+	err = svc.Clean(false)
+	if err == nil {
+		t.Fatal("expected clean to refuse file with missing source and private files")
+	}
+	if !strings.Contains(err.Error(), "source and private files are both missing") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

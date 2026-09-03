@@ -65,6 +65,7 @@ const (
 	HiddenModified
 	HiddenNotRevealed
 	HiddenPrivateMissing
+	HiddenMissing
 )
 
 func (code StatusCode) String() string {
@@ -79,6 +80,8 @@ func (code StatusCode) String() string {
 		return "hidden, not revealed"
 	case HiddenPrivateMissing:
 		return "WARNING: private file missing!"
+	case HiddenMissing:
+		return "ERROR: source and private files missing!"
 	default:
 		return "unknown"
 	}

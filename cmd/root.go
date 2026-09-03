@@ -155,10 +155,26 @@ func statusCmd(service *usecase.Service) *cobra.Command {
 				fmt.Fprintln(w, "No private files")
 			}
 			for _, item := range statuses {
-				fmt.Fprintf(w, "%s\t[%s]\n", item.File.Path, item.Status)
+				hint := statusHint(item)
+				if hint == "" {
+					fmt.Fprintf(w, "%s\t[%s]\n", item.File.Path, item.Status)
+					continue
+				}
+				fmt.Fprintf(w, "%s\t[%s]\t%s\n", item.File.Path, item.Status, hint)
 			}
 			return w.Flush()
 		},
+	}
+}
+
+func statusHint(status domain.FileStatus) string {
+	switch status.Status {
+	case domain.HiddenPrivateMissing:
+		return fmt.Sprintf("fix: run `git-safe hide %s` if plaintext is current, or restore %s%s from git/backup", status.File.Path, status.File.Path, domain.PrivateExtension)
+	case domain.HiddenMissing:
+		return fmt.Sprintf("fix: restore %s%s from git/backup, or run `git-safe remove %s` to stop tracking it", status.File.Path, domain.PrivateExtension, status.File.Path)
+	default:
+		return ""
 	}
 }
 
@@ -356,7 +372,7 @@ To load completions:
     $ git-safe completion fish | source
   PowerShell:
     PS> git-safe completion powershell | Out-String | Invoke-Expression`,
-		Args: cobra.ExactArgs(1),
+		Args:      cobra.ExactArgs(1),
 		ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switch args[0] {
